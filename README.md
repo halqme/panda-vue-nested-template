@@ -1,42 +1,32 @@
-# .
+# Panda 2.0.1 Vue nested-template extraction repro
 
-This template should help get you started developing with Vue 3 in Vite.
+This project reproduces missing CSS extraction from a Vue SFC when an inner
+`<template>` closes before a later `css()` call in the root template.
 
-## Recommended IDE Setup
-
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Reproduce
 
 ```sh
 pnpm install
+pnpm panda:codegen
+pnpm exec panda cssgen --include 'src/App.vue' --outfile /tmp/nested-template.css --max-warnings 0
 ```
 
-### Compile and Hot-Reload for Development
+`src/App.vue` places `css({ bg: 'red.500' })` after a nested
+`<template v-if>`. On Panda 2.0.1, `cssgen` exits with status 0 and reports no
+diagnostics, but the CSS utility is missing:
 
 ```sh
-pnpm dev
+rg -F '.bg_red\.500' /tmp/nested-template.css || echo 'missing as reproduced'
 ```
 
-### Type-Check, Compile and Minify for Production
+For comparison, run the same extraction on `repro/div-control.vue`, where the
+nested `<template v-if>` is replaced with `<div v-if>`:
 
 ```sh
-pnpm build
+pnpm exec panda cssgen --include 'repro/div-control.vue' --outfile /tmp/div-control.css --max-warnings 0
+rg -F '.bg_red\.500' /tmp/div-control.css
 ```
+
+The control output contains the utility. `panda.config.ts` scans `src/` by
+default so the control fixture does not hide the failure in the regular
+`pnpm panda:cssgen` run. Generated `styled-system/` files are ignored by Git.
